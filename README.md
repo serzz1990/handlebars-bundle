@@ -1,4 +1,5 @@
 # handlebars-bundle
+[npm-link](https://www.npmjs.com/package/handlebars-bundle)
 json generator
 
 
