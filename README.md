@@ -13,6 +13,7 @@ bundle.build(options);
 
 * {string} src - source path
 * {string} root - root path
+* {string} dest - dest path
 * {boolean} watch - watching changes
 * {boolean} ignore_errors - ignore errors
 
@@ -23,5 +24,3 @@ bundle.build(options);
 ```
 
 ## TODO
-* add options dest
-* don't work options ignore_errors

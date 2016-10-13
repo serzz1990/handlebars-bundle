@@ -1,10 +1,10 @@
 'use strict';
 
-var glob  = require('glob');
-var chalk = require('chalk');
-var path  = require('path');
-var fs    = require('fs');
-
+var glob   = require('glob');
+var chalk  = require('chalk');
+var path   = require('path');
+var fs     = require('fs');
+var mkpath = require('mkpath');
 
 function handelbars () {}
 
@@ -29,11 +29,19 @@ handelbars.build = function (options) {
 
 		files.forEach(function (file) {
 			var name = file.substr(0, file.length - 4).replace(options.root, '');
-			var dest = name + handelbars.bundle_ext;
-			fs.writeFileSync(path.join(options.root, dest), JSON.stringify(put_together_template(options.root, name)));
+			var path_template = name.split('/');
+
+			var template_name = path_template.pop();
+			path_template = path_template.join('/');
+
+			var dest = path.join(options.dest, path_template + '/');
+			var bundle = JSON.stringify(put_together_template(options.root, name, options));
+
+			mkpath.sync(dest);
+			fs.writeFileSync(path.join(dest, template_name +  handelbars.bundle_ext), bundle);
 		});
 
-		console.log(chalk.green('Combiner Build: Done without errors,', files.length, 'files processed'));
+		console.log(chalk.green('Combiner Build ['+new Date()+']:', files.length, 'files processed'));
 
 	});
 
@@ -102,52 +110,72 @@ handelbars.__get_folders = function (src, cb) {
 handelbars.__parse_options = function (options = {}) {
 
 	options.root = options.root || options.src;
+	options.dest = options.dest || options.root;
+	options.ignore_errors = options.watch || options.ignore_errors;
 
 	return options;
 
 };
 
 
-function put_together_template (path_prefix, template_name, seen = {}) {
+function put_together_template (path_prefix, template_name, options, seen = {}) {
 
-	let content   = fs.readFileSync( path_prefix + template_name + handelbars.ext, {encoding: 'utf8'});
-	let partials  = getPartialsByContent(content);
+	let template_path   = path.join(path_prefix, template_name + handelbars.ext);
+	let content         = getFileContent(template_path, options);
+
 	let res = {
-		template: {
-			name: template_name,
-			content: content.replace(/(\r\n|\n|\r)/gm, '').replace(/\s+/g, ' '),
-			mtime: fs.statSync( path_prefix + template_name + handelbars.ext).mtime.getTime()
-		},
+		template: {},
 		partials: {}
 	};
 
+	if (content !== null) {
 
-	partials.forEach(function (path) {
+		res.template.name = template_name;
+		res.template.content = content.replace(/(\r\n|\n|\r)/gm, '').replace(/\s+/g, ' ');
+		res.template.mtime = fs.statSync(template_path).mtime.getTime();
 
-		var sub_template_name = path;
+		getPartialsByContent(content).forEach(function (path) {
 
-		if (seen[sub_template_name]) {
-			return;
-		} else {
-			seen[sub_template_name] = 1;
-		}
+			var sub_template_name = path;
 
-		var sub_template = put_together_template(path_prefix, sub_template_name, seen);
-		res.partials[sub_template.template.name] = sub_template.template;
-
-		for (var partial in sub_template.partials) {
-			if (sub_template.partials.hasOwnProperty(partial)) {
-				res.partials[partial] = sub_template.partials[partial];
-				seen[partial] = 1;
+			if (seen[sub_template_name]) {
+				return;
+			} else {
+				seen[sub_template_name] = 1;
 			}
-		}
 
-	});
+			var sub_template = put_together_template(path_prefix, sub_template_name, options, seen);
+			res.partials[sub_template.template.name] = sub_template.template;
+
+			for (var partial in sub_template.partials) {
+				if (sub_template.partials.hasOwnProperty(partial)) {
+					res.partials[partial] = sub_template.partials[partial];
+					seen[partial] = 1;
+				}
+			}
+
+		});
+
+	}
+
+
 
 	return res;
 
 }
 
+
+function getFileContent (path, options) {
+
+	try {
+		return fs.readFileSync( path, {encoding: 'utf8'});
+	}
+	catch (e) {
+		error(e, options);
+		return null;
+	}
+
+}
 
 function getPartialsByContent (content) {
 
@@ -176,7 +204,7 @@ function readFile(file) {
 function error (err, options) {
 
 	console.log(chalk.red('Combiner Build: Error:'));
-	console.log(err);
+	console.log(chalk.red(err));
 
 	if (!options.ignore_errors){
 		process.exit(88);
