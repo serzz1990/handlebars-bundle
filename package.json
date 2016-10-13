@@ -1,0 +1,36 @@
+{
+	"bugs": {
+		"url": "https://github.com/isaacs/node-graceful-fs/issues"
+	},
+	"dependencies": {},
+	"description": "",
+	"devDependencies": {
+		"chalk": "^1.1.3",
+		"glob": "^7.1.0"
+	},
+	"directories": {},
+	"dist": {
+	},
+	"engines": {
+		"node": ">=0.4.0"
+	},
+	"files": [],
+	"keywords": [],
+	"license": "ISC",
+	"main": "index.js",
+	"maintainers": [
+		{
+			"name": "whooooop",
+			"email": "serzz1990@gmail.com"
+		}
+	],
+	"name": "handlebars-bundle",
+	"repository": {
+		"type": "git",
+		"url": ""
+	},
+	"scripts": {
+		"test" : "node ./test/test.js --watch"
+	},
+	"version": "1.0.0"
+}
