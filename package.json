@@ -27,7 +27,7 @@
 	"name": "handlebars-bundle",
 	"repository": {
 		"type": "git",
-		"url": ""
+		"url": "git@github.com:serzz1990/handlebars-bundle.git"
 	},
 	"scripts": {
 		"test" : "node ./test/test.js --watch"
