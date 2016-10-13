@@ -21,3 +21,7 @@ bundle.build(options);
 ```javascript
 {"template":{"name":"path/path","content":"html content","mtime":1476356647000},"partials":{}}
 ```
+
+## TODO
+* add options dest
+* don't work options ignore_errors

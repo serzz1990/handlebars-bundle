@@ -16,12 +16,6 @@ handelbars.bundle_ext = '.bundle.json';
 
 /**
  *
- * options.src
- * options.ignore_errors - игнорирование ошибок
- * options.watch - вотчер
- * options.dest
- * options.root - корневой путь
- *
  */
 handelbars.build = function (options) {
 
@@ -48,7 +42,6 @@ handelbars.build = function (options) {
 	}
 
 };
-
 
 
 handelbars.watch = function (options) {
@@ -115,55 +108,60 @@ handelbars.__parse_options = function (options = {}) {
 };
 
 
-
-
 function put_together_template (path_prefix, template_name, seen = {}) {
 
-	let desc;
-	let desc_path = path_prefix + template_name + '.desc.json';
-	let content = fs.readFileSync( path_prefix + template_name + handelbars.ext, {encoding: "utf8"});
+	let content   = fs.readFileSync( path_prefix + template_name + handelbars.ext, {encoding: 'utf8'});
+	let partials  = getPartialsByContent(content);
 	let res = {
 		template: {
 			name: template_name,
-			content: content.replace(/(\r\n|\n|\r)/gm, "").replace(/\s+/g, " "),
+			content: content.replace(/(\r\n|\n|\r)/gm, '').replace(/\s+/g, ' '),
 			mtime: fs.statSync( path_prefix + template_name + handelbars.ext).mtime.getTime()
 		},
 		partials: {}
 	};
 
 
-	if (fs.existsSync(desc_path)) {
+	partials.forEach(function (path) {
 
-		desc = readFile(desc_path);
+		var sub_template_name = path;
 
-		['dependencies'].forEach(function (name) {
-			var value = desc[name];
-			if (!value)
-				return;
-			(Array.isArray(value) ? value : [value]).forEach(function (element) {
-				var sub_template_name = element;
-				if (seen[sub_template_name]) {
-					return;
-				} else {
-					seen[sub_template_name] = 1;
-				}
-				var sub_template = put_together_template(path_prefix, sub_template_name, seen);
-				res.partials[sub_template.template.name] = sub_template.template;
-				for (var partial in sub_template.partials) {
-					if (sub_template.partials.hasOwnProperty(partial)) {
-						res.partials[partial] = sub_template.partials[partial];
-						seen[partial] = 1;
-					}
-				}
-			});
-		});
+		if (seen[sub_template_name]) {
+			return;
+		} else {
+			seen[sub_template_name] = 1;
+		}
 
-	}
+		var sub_template = put_together_template(path_prefix, sub_template_name, seen);
+		res.partials[sub_template.template.name] = sub_template.template;
+
+		for (var partial in sub_template.partials) {
+			if (sub_template.partials.hasOwnProperty(partial)) {
+				res.partials[partial] = sub_template.partials[partial];
+				seen[partial] = 1;
+			}
+		}
+
+	});
 
 	return res;
 
 }
 
+
+function getPartialsByContent (content) {
+
+	let result;
+	let partials = [];
+	let regexp = /{{(>|extend)\s?"?(.+?)"?\s?}}/g;
+
+	while (result = regexp.exec(content)) {
+		partials.push(result[2]);
+	}
+
+
+	return partials;
+}
 
 
 function readFile(file) {
