@@ -181,7 +181,10 @@ function getPartialsByContent (content) {
 
 	let result;
 	let partials = [];
-	let regexp = /{{(>|extend)\s?"?(.+?)"?\s?}}/g;
+	let regexp = /{{(>|extend\s)\s?"?(.+?)("|'|\s|})/g;
+
+	//Еще одно решение
+	//{{(>|extend)(\s)*["]{0,1}([^"(\s)]*)?(["]{0,1})(\s)*}}
 
 	while (result = regexp.exec(content)) {
 		partials.push(result[2]);
