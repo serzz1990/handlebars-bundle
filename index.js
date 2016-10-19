@@ -19,7 +19,10 @@ handelbars.bundle_ext = '.bundle.json';
  */
 handelbars.build = function (options) {
 
+	let start = Date.now();
 	options = this.__parse_options(options);
+
+	console.log('[HANDLEBARS-BUNDLE] Start build');
 
 	glob(path.join(options.src, '**/*' + handelbars.ext), null, function (err, files) {
 
@@ -41,7 +44,7 @@ handelbars.build = function (options) {
 			fs.writeFileSync(path.join(dest, template_name +  handelbars.bundle_ext), bundle);
 		});
 
-		console.log(chalk.green('Combiner Build ['+new Date()+']:', files.length, 'files processed'));
+		console.log('[HANDLEBARS-BUNDLE] Finished build', ((Date.now()- start)/ 1000) + 's' );
 
 	});
 
@@ -74,7 +77,7 @@ handelbars.watch = function (options) {
 		});
 
 		if (folders.length) {
-			console.log(chalk.green('Combiner Watching start'));
+			console.log('[HANDLEBARS-BUNDLE] Start watch');
 		}
 
 	});
@@ -128,9 +131,11 @@ function put_together_template (path_prefix, template_name, options, seen = {}) 
 		partials: {}
 	};
 
-	if (content !== null) {
+	if (content === null) {
+		return;
+	}
 
-		res.template.name = template_name;
+	res.template.name = template_name;
 		res.template.content = content.replace(/(\r\n|\n|\r)/gm, '').replace(/\s+/g, ' ');
 		res.template.mtime = fs.statSync(template_path).mtime.getTime();
 
@@ -145,19 +150,20 @@ function put_together_template (path_prefix, template_name, options, seen = {}) 
 			}
 
 			var sub_template = put_together_template(path_prefix, sub_template_name, options, seen);
-			res.partials[sub_template.template.name] = sub_template.template;
 
-			for (var partial in sub_template.partials) {
-				if (sub_template.partials.hasOwnProperty(partial)) {
-					res.partials[partial] = sub_template.partials[partial];
-					seen[partial] = 1;
+			if (sub_template) {
+				res.partials[sub_template.template.name] = sub_template.template;
+
+				for (var partial in sub_template.partials) {
+					if (sub_template.partials.hasOwnProperty(partial)) {
+						res.partials[partial] = sub_template.partials[partial];
+						seen[partial] = 1;
+					}
 				}
 			}
 
+
 		});
-
-	}
-
 
 
 	return res;
@@ -165,13 +171,12 @@ function put_together_template (path_prefix, template_name, options, seen = {}) 
 }
 
 
-function getFileContent (path, options) {
+function getFileContent (path) {
 
 	try {
 		return fs.readFileSync( path, {encoding: 'utf8'});
 	}
 	catch (e) {
-		error(e, options);
 		return null;
 	}
 
