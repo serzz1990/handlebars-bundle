@@ -124,7 +124,7 @@ handelbars.__parse_options = function (options = {}) {
 function put_together_template (path_prefix, template_name, options, seen = {}) {
 
 	let template_path   = path.join(path_prefix, template_name + handelbars.ext);
-	let content         = getFileContent(template_path, options);
+	let content         = getFileContent(template_path, template_name);
 
 	let res = {
 		template: {},
@@ -171,12 +171,19 @@ function put_together_template (path_prefix, template_name, options, seen = {}) 
 }
 
 
-function getFileContent (path) {
+function getFileContent (path, partial_name) {
 
 	try {
+
 		return fs.readFileSync( path, {encoding: 'utf8'});
+
 	}
 	catch (e) {
+
+		if (partial_name.search('/') > -1) {
+            console.error(path,e.message);
+		}
+
 		return null;
 	}
 
