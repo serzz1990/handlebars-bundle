@@ -5,64 +5,59 @@ var chalk  = require('chalk');
 var path   = require('path');
 var fs     = require('fs');
 var mkpath = require('mkpath');
+var Promise = require('es6-promise').Promise;
 
-function handelbars () {}
-
-
-handelbars.ext = '.hbs';
-
-handelbars.bundle_ext = '.bundle.json';
+var EXT = '.hbs';
+var BUNDLE_EXT = '.bundle.json';
 
 
-/**
- *
- */
-handelbars.build = function (options) {
+function build (options) {
 
 	let start = Date.now();
-	options = this.__parse_options(options);
+	options = parse_options(options);
 
 	console.log('[HANDLEBARS-BUNDLE] Start build');
 
-	glob(path.join(options.src, '**/*' + handelbars.ext), null, function (err, files) {
+	return new Promise(function (resolve, reject) {
 
-		if (err) {
-			return error(err, options);
-		}
+        glob(path.join(options.src, '**/*' + EXT), null, function (err, files) {
 
-		files.forEach(function (file) {
-			var name = file.substr(0, file.length - 4).replace(options.root, '');
-			var path_template = name.split('/');
+            if (err) {
+                reject(err);
+                return error(err, options);
+            }
 
-			var template_name = path_template.pop();
-			path_template = path_template.join('/');
+            files.forEach(function (file) {
+                var name = file.substr(0, file.length - 4).replace(options.root, '');
+                var path_template = name.split('/');
 
-			var dest = path.join(options.dest, path_template + '/');
-			var bundle = JSON.stringify(put_together_template(options.root, name, options));
+                var template_name = path_template.pop();
+                path_template = path_template.join('/');
 
-			mkpath.sync(dest);
-			fs.writeFileSync(path.join(dest, template_name +  handelbars.bundle_ext), bundle);
-		});
+                var dest = path.join(options.dest, path_template + '/');
+                var bundle = JSON.stringify(put_together_template(options.root, name, options));
 
-		console.log('[HANDLEBARS-BUNDLE] Finished build', ((Date.now()- start)/ 1000) + 's' );
+                mkpath.sync(dest);
+                fs.writeFileSync(path.join(dest, template_name +  BUNDLE_EXT), bundle);
+            });
+
+            console.log('[HANDLEBARS-BUNDLE] Finished build', ((Date.now()- start)/ 1000) + 's' );
+            resolve();
+
+        })
 
 	});
 
-	if (options.watch) {
-		handelbars.watch(options);
-	}
+}
 
-};
+function watch (options) {
 
+	var ext = new RegExp('\\'+ EXT +'$');
 
-handelbars.watch = function (options) {
-
-	var ext = new RegExp('\\'+ handelbars.ext +'$');
-
-	options = this.__parse_options(options);
+	options = parse_options(options);
 	options.watch = false;
 
-	this.__get_folders(path.join(options.src, '**/*' + handelbars.ext), function (folders) {
+	get_folders(path.join(options.src, '**/*' + EXT), function (folders) {
 
 		if (!folders.length) return;
 
@@ -70,7 +65,7 @@ handelbars.watch = function (options) {
 			fs.watch(folder, {}, function (eventType, filename) {
 
 				if (filename.search(ext) > -1) {
-					handelbars.build(options);
+					build(options);
 				}
 
 			});
@@ -82,10 +77,9 @@ handelbars.watch = function (options) {
 
 	});
 
-};
+}
 
-
-handelbars.__get_folders = function (src, cb) {
+function get_folders (src, cb) {
 
 	var folders = [];
 
@@ -109,8 +103,7 @@ handelbars.__get_folders = function (src, cb) {
 
 };
 
-
-handelbars.__parse_options = function (options = {}) {
+function parse_options (options = {}) {
 
 	options.root = options.root || options.src;
 	options.dest = options.dest || options.root;
@@ -118,12 +111,11 @@ handelbars.__parse_options = function (options = {}) {
 
 	return options;
 
-};
-
+}
 
 function put_together_template (path_prefix, template_name, options, seen = {}) {
 
-	let template_path   = path.join(path_prefix, template_name + handelbars.ext);
+	let template_path   = path.join(path_prefix, template_name + EXT);
 	let content         = getFileContent(template_path, template_name);
 
 	let res = {
@@ -170,7 +162,6 @@ function put_together_template (path_prefix, template_name, options, seen = {}) 
 
 }
 
-
 function getFileContent (path, partial_name) {
 
 	try {
@@ -206,16 +197,6 @@ function getPartialsByContent (content) {
 	return partials;
 }
 
-
-function readFile(file) {
-	try {
-		return JSON.parse(fs.readFileSync(file, {encoding: "utf8"}));
-	} catch (err) {
-		throw "Failed to read json from '" + file + "': " + err;
-	}
-}
-
-
 function error (err, options) {
 
 	console.log(chalk.red('Combiner Build: Error:'));
@@ -228,4 +209,12 @@ function error (err, options) {
 }
 
 
-module.exports = handelbars;
+module.exports = function (options) {
+
+    if (options.watch) {
+        watch(options);
+    }
+
+    return build(options);
+
+};

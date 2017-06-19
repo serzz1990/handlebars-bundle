@@ -1,6 +1,6 @@
-const bundle = require('../index');
+const HandlebarsBundleBuild = require('../index');
 
-bundle.build({
+HandlebarsBundleBuild({
 	src : process.cwd() + '/test/source/',
 	root: process.cwd() + '/test/source/',
 	dest: process.cwd() + '/test/public/',
