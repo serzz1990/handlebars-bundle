@@ -172,7 +172,7 @@ function getFileContent (path, partial_name) {
 	catch (e) {
 
 		if (partial_name.search('/') > -1) {
-            console.error(path,e.message);
+            console.error(e.message);
 		}
 
 		return null;
