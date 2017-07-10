@@ -1,24 +1,25 @@
 'use strict';
 
-var glob   = require('glob');
-var chalk  = require('chalk');
-var path   = require('path');
-var fs     = require('fs');
+var glob = require('glob');
+var chalk = require('chalk');
+var path = require('path');
+var fs = require('fs');
 var mkpath = require('mkpath');
 var Promise = require('es6-promise').Promise;
 
 var EXT = '.hbs';
 var BUNDLE_EXT = '.bundle.json';
+var timeReBuild = 600;
 
 
-function build (options) {
+function build(options) {
 
-	let start = Date.now();
-	options = parse_options(options);
+    let start = Date.now();
+    options = parse_options(options);
 
-	console.log('[HANDLEBARS-BUNDLE] Start build');
+    console.log('[HANDLEBARS-BUNDLE] Start build');
 
-	return new Promise(function (resolve, reject) {
+    return new Promise(function (resolve, reject) {
 
         glob(path.join(options.src, '**/*' + EXT), null, function (err, files) {
 
@@ -34,177 +35,171 @@ function build (options) {
                 var template_name = path_template.pop();
                 path_template = path_template.join('/');
 
-                var dest = path.join(options.dest, path_template + '/');
+                var output = path.join(options.output, path_template + '/');
                 var bundle = JSON.stringify(put_together_template(options.root, name, options));
 
-                mkpath.sync(dest);
-                fs.writeFileSync(path.join(dest, template_name +  BUNDLE_EXT), bundle);
+                mkpath.sync(output);
+                fs.writeFileSync(path.join(output, template_name + BUNDLE_EXT), bundle);
             });
 
-            console.log('[HANDLEBARS-BUNDLE] Finished build', ((Date.now()- start)/ 1000) + 's' );
+            console.log('[HANDLEBARS-BUNDLE] Finished build', ((Date.now() - start) / 1000) + 's');
             resolve();
 
         })
 
-	});
+    });
 
 }
 
-function watch (options) {
+function watch(options) {
 
-	var ext = new RegExp('\\'+ EXT +'$');
+    var ext = new RegExp('\\' + EXT + '$');
+    var _timeout;
 
-	options = parse_options(options);
-	options.watch = false;
+    options = parse_options(options);
 
-	get_folders(path.join(options.src, '**/*' + EXT), function (folders) {
+    console.log('[HANDLEBARS-BUNDLE] Start watch', options.src);
 
-		if (!folders.length) return;
+    fs.watch(options.src + '/', {recursive: true}, function (eventType, filename) {
 
-		folders.forEach(function (folder) {
-			fs.watch(folder, {}, function (eventType, filename) {
+        if (!~filename.search(ext) || _timeout) return;
 
-				if (filename.search(ext) > -1) {
-					build(options);
-				}
+        _timeout = setTimeout(function () {
+            _timeout = false;
+            build(options);
+        }, timeReBuild);
 
-			});
-		});
+    });
 
-		if (folders.length) {
-			console.log('[HANDLEBARS-BUNDLE] Start watch');
-		}
-
-	});
 
 }
 
-function get_folders (src, cb) {
+function get_folders(src, cb) {
 
-	var folders = [];
+    var folders = [];
 
-	glob(src, null, function (err, files) {
+    glob(src, null, function (err, files) {
 
-		files.forEach(function (file) {
+        files.forEach(function (file) {
 
-			var folder = file.split('/');
-			folder.pop();
-			folder = folder.join('/') + '/';
+            var folder = file.split('/');
+            folder.pop();
+            folder = folder.join('/') + '/';
 
-			if (folders.indexOf(folder) < 0) {
-				folders.push(folder);
-			}
+            if (folders.indexOf(folder) < 0) {
+                folders.push(folder);
+            }
 
-		});
+        });
 
-		cb(folders);
+        cb(folders);
 
-	});
+    });
 
 };
 
-function parse_options (options = {}) {
+function parse_options(options = {}) {
 
-	options.root = options.root || options.src;
-	options.dest = options.dest || options.root;
-	options.ignore_errors = options.watch || options.ignore_errors;
+    options.root = options.root || options.src;
+    options.output = options.output || options.root;
+    options.ignore_errors = options.watch || options.ignore_errors;
 
-	return options;
-
-}
-
-function put_together_template (path_prefix, template_name, options, seen = {}) {
-
-	let template_path   = path.join(path_prefix, template_name + EXT);
-	let content         = getFileContent(template_path, template_name);
-
-	let res = {
-		template: {},
-		partials: {}
-	};
-
-	if (content === null) {
-		return;
-	}
-
-	res.template.name = template_name;
-		res.template.content = content.replace(/(\r\n|\n|\r)/gm, '').replace(/\s+/g, ' ');
-		res.template.mtime = fs.statSync(template_path).mtime.getTime();
-
-		getPartialsByContent(content).forEach(function (path) {
-
-			var sub_template_name = path;
-
-			if (seen[sub_template_name]) {
-				return;
-			} else {
-				seen[sub_template_name] = 1;
-			}
-
-			var sub_template = put_together_template(path_prefix, sub_template_name, options, seen);
-
-			if (sub_template) {
-				res.partials[sub_template.template.name] = sub_template.template;
-
-				for (var partial in sub_template.partials) {
-					if (sub_template.partials.hasOwnProperty(partial)) {
-						res.partials[partial] = sub_template.partials[partial];
-						seen[partial] = 1;
-					}
-				}
-			}
-
-
-		});
-
-
-	return res;
+    return options;
 
 }
 
-function getFileContent (path, partial_name) {
+function put_together_template(path_prefix, template_name, options, seen = {}) {
 
-	try {
+    let template_path = path.join(path_prefix, template_name + EXT);
+    let content = getFileContent(template_path, template_name);
 
-		return fs.readFileSync( path, {encoding: 'utf8'});
+    let res = {
+        template: {},
+        partials: {}
+    };
 
-	}
-	catch (e) {
+    if (content === null) {
+        return;
+    }
 
-		if (partial_name.search('/') > -1) {
+    res.template.name = template_name;
+    res.template.content = content.replace(/(\r\n|\n|\r)/gm, '').replace(/\s+/g, ' ');
+    res.template.mtime = fs.statSync(template_path).mtime.getTime();
+
+    getPartialsByContent(content).forEach(function (path) {
+
+        var sub_template_name = path;
+
+        if (seen[sub_template_name]) {
+            return;
+        } else {
+            seen[sub_template_name] = 1;
+        }
+
+        var sub_template = put_together_template(path_prefix, sub_template_name, options, seen);
+
+        if (sub_template) {
+            res.partials[sub_template.template.name] = sub_template.template;
+
+            for (var partial in sub_template.partials) {
+                if (sub_template.partials.hasOwnProperty(partial)) {
+                    res.partials[partial] = sub_template.partials[partial];
+                    seen[partial] = 1;
+                }
+            }
+        }
+
+
+    });
+
+
+    return res;
+
+}
+
+function getFileContent(path, partial_name) {
+
+    try {
+
+        return fs.readFileSync(path, {encoding: 'utf8'});
+
+    }
+    catch (e) {
+
+        if (partial_name.search('/') > -1) {
             console.error(e.message);
-		}
+        }
 
-		return null;
-	}
+        return null;
+    }
 
 }
 
-function getPartialsByContent (content) {
+function getPartialsByContent(content) {
 
-	let result;
-	let partials = [];
-	let regexp = /{{(>|extend\s)\s?"?(.+?)("|'|\s|})/g;
+    let result;
+    let partials = [];
+    let regexp = /{{(>|extend\s)\s?"?(.+?)("|'|\s|})/g;
 
-	//Еще одно решение
-	//{{(>|extend)(\s)*["]{0,1}([^"(\s)]*)?(["]{0,1})(\s)*}}
+    //Еще одно решение
+    //{{(>|extend)(\s)*["]{0,1}([^"(\s)]*)?(["]{0,1})(\s)*}}
 
-	while (result = regexp.exec(content)) {
-		partials.push(result[2]);
-	}
+    while (result = regexp.exec(content)) {
+        partials.push(result[2]);
+    }
 
 
-	return partials;
+    return partials;
 }
 
-function error (err, options) {
+function error(err, options) {
 
-	console.log(chalk.red('Combiner Build: Error:'));
-	console.log(chalk.red(err));
+    console.log(chalk.red('Combiner Build: Error:'));
+    console.log(chalk.red(err));
 
-	if (!options.ignore_errors){
-		process.exit(88);
-	}
+    if (!options.ignore_errors) {
+        process.exit(88);
+    }
 
 }
 
