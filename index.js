@@ -7,11 +7,44 @@ var fs = require('fs');
 var mkpath = require('mkpath');
 var Promise = require('es6-promise').Promise;
 
-var EXT = '.hbs';
-var BUNDLE_EXT = '.bundle.json';
-var timeReBuild = 600;
+
+var HandlebarsBundle = function (options) {
+
+    if (options.watch) {
+        watch(options);
+    }
+
+    return build(options);
+
+};
 
 
+/**
+ * File EXT
+ * @type {string}
+ */
+HandlebarsBundle.EXT = '.hbs';
+
+
+/**
+ * Output file ext
+ * @type {string}
+ */
+HandlebarsBundle.BUNDLE_EXT = '.bundle.json';
+
+
+/**
+ * Timeout rebuild after change
+ * @type {number}
+ */
+HandlebarsBundle.timeRebuild = 600;
+
+
+/**
+ * Build fn
+ * @param options
+ * @return {Promise}
+ */
 function build(options) {
 
     let start = Date.now();
@@ -21,7 +54,7 @@ function build(options) {
 
     return new Promise(function (resolve, reject) {
 
-        glob(path.join(options.src, '**/*' + EXT), null, function (err, files) {
+        glob(path.join(options.src, '**/*' + HandlebarsBundle.EXT), null, function (err, files) {
 
             if (err) {
                 reject(err);
@@ -39,7 +72,7 @@ function build(options) {
                 var bundle = JSON.stringify(put_together_template(options.root, name, options));
 
                 mkpath.sync(output);
-                fs.writeFileSync(path.join(output, template_name + BUNDLE_EXT), bundle);
+                fs.writeFileSync(path.join(output, template_name + HandlebarsBundle.BUNDLE_EXT), bundle);
             });
 
             console.log('[HANDLEBARS-BUNDLE] Finished build', ((Date.now() - start) / 1000) + 's');
@@ -51,9 +84,14 @@ function build(options) {
 
 }
 
+
+/**
+ * Watch fn
+ * @param options
+ */
 function watch(options) {
 
-    var ext = new RegExp('\\' + EXT + '$');
+    var ext = new RegExp('\\' + HandlebarsBundle.EXT + '$');
     var _timeout;
 
     options = parse_options(options);
@@ -67,12 +105,13 @@ function watch(options) {
         _timeout = setTimeout(function () {
             _timeout = false;
             build(options);
-        }, timeReBuild);
+        }, HandlebarsBundle.timeRebuild);
 
     });
 
-
 }
+
+
 
 function parse_options(options = {}) {
 
@@ -86,7 +125,7 @@ function parse_options(options = {}) {
 
 function put_together_template(path_prefix, template_name, options, seen = {}) {
 
-    let template_path = path.join(path_prefix, template_name + EXT);
+    let template_path = path.join(path_prefix, template_name + HandlebarsBundle.EXT);
     let content = getFileContent(template_path, template_name);
 
     let res = {
@@ -180,12 +219,4 @@ function error(err, options) {
 }
 
 
-module.exports = function (options) {
-
-    if (options.watch) {
-        watch(options);
-    }
-
-    return build(options);
-
-};
+module.exports = HandlebarsBundle;
