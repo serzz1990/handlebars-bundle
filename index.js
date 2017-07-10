@@ -74,30 +74,6 @@ function watch(options) {
 
 }
 
-function get_folders(src, cb) {
-
-    var folders = [];
-
-    glob(src, null, function (err, files) {
-
-        files.forEach(function (file) {
-
-            var folder = file.split('/');
-            folder.pop();
-            folder = folder.join('/') + '/';
-
-            if (folders.indexOf(folder) < 0) {
-                folders.push(folder);
-            }
-
-        });
-
-        cb(folders);
-
-    });
-
-};
-
 function parse_options(options = {}) {
 
     options.root = options.root || options.src;
