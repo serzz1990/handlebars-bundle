@@ -1,51 +1,19 @@
 'use strict';
 
-var glob = require('glob');
-var chalk = require('chalk');
-var path = require('path');
-var fs = require('fs');
+var glob   = require('glob');
+var chalk  = require('chalk');
+var path   = require('path');
+var fs     = require('fs');
 var mkpath = require('mkpath');
 var Promise = require('es6-promise').Promise;
+var RecursiveWatch = require('recursive-watch');
+
+var EXT = '.hbs';
+var BUNDLE_EXT = '.bundle.json';
+var timeReBuild = 600;
 
 
-var HandlebarsBundle = function (options) {
-
-    if (options.watch) {
-        watch(options);
-    }
-
-    return build(options);
-
-};
-
-
-/**
- * File EXT
- * @type {string}
- */
-HandlebarsBundle.EXT = '.hbs';
-
-
-/**
- * Output file ext
- * @type {string}
- */
-HandlebarsBundle.BUNDLE_EXT = '.bundle.json';
-
-
-/**
- * Timeout rebuild after change
- * @type {number}
- */
-HandlebarsBundle.timeRebuild = 600;
-
-
-/**
- * Build fn
- * @param options
- * @return {Promise}
- */
-function build(options) {
+function build (options) {
 
     let start = Date.now();
     options = parse_options(options);
@@ -54,7 +22,7 @@ function build(options) {
 
     return new Promise(function (resolve, reject) {
 
-        glob(path.join(options.src, '**/*' + HandlebarsBundle.EXT), null, function (err, files) {
+        glob(path.join(options.src, '**/*' + EXT), null, function (err, files) {
 
             if (err) {
                 reject(err);
@@ -72,10 +40,10 @@ function build(options) {
                 var bundle = JSON.stringify(put_together_template(options.root, name, options));
 
                 mkpath.sync(output);
-                fs.writeFileSync(path.join(output, template_name + HandlebarsBundle.BUNDLE_EXT), bundle);
+                fs.writeFileSync(path.join(output, template_name +  BUNDLE_EXT), bundle);
             });
 
-            console.log('[HANDLEBARS-BUNDLE] Finished build', ((Date.now() - start) / 1000) + 's');
+            console.log('[HANDLEBARS-BUNDLE] Finished build', ((Date.now()- start)/ 1000) + 's' );
             resolve();
 
         })
@@ -84,36 +52,53 @@ function build(options) {
 
 }
 
+function watch (options) {
 
-/**
- * Watch fn
- * @param options
- */
-function watch(options) {
-
-    var ext = new RegExp('\\' + HandlebarsBundle.EXT + '$');
+    var ext = new RegExp('\\'+ EXT +'$');
     var _timeout;
 
     options = parse_options(options);
 
-    console.log('[HANDLEBARS-BUNDLE] Start watch', options.src);
+    console.log('[HANDLEBARS-BUNDLE] Start watch');
 
-    fs.watch(options.src + '/', {recursive: true}, function (eventType, filename) {
+    RecursiveWatch(options.src + '/', function (filename) {
 
         if (!~filename.search(ext) || _timeout) return;
 
         _timeout = setTimeout(function () {
             _timeout = false;
             build(options);
-        }, HandlebarsBundle.timeRebuild);
+        }, timeReBuild);
 
     });
 
 }
 
+function get_folders (src, cb) {
 
+    var folders = [];
 
-function parse_options(options = {}) {
+    glob(src, null, function (err, files) {
+
+        files.forEach(function (file) {
+
+            var folder = file.split('/');
+            folder.pop();
+            folder = folder.join('/') + '/';
+
+            if (folders.indexOf(folder) < 0) {
+                folders.push(folder);
+            }
+
+        });
+
+        cb(folders);
+
+    });
+
+};
+
+function parse_options (options = {}) {
 
     options.root = options.root || options.src;
     options.output = options.output || options.root;
@@ -123,10 +108,10 @@ function parse_options(options = {}) {
 
 }
 
-function put_together_template(path_prefix, template_name, options, seen = {}) {
+function put_together_template (path_prefix, template_name, options, seen = {}) {
 
-    let template_path = path.join(path_prefix, template_name + HandlebarsBundle.EXT);
-    let content = getFileContent(template_path, template_name);
+    let template_path   = path.join(path_prefix, template_name + EXT);
+    let content         = getFileContent(template_path, template_name);
 
     let res = {
         template: {},
@@ -172,11 +157,11 @@ function put_together_template(path_prefix, template_name, options, seen = {}) {
 
 }
 
-function getFileContent(path, partial_name) {
+function getFileContent (path, partial_name) {
 
     try {
 
-        return fs.readFileSync(path, {encoding: 'utf8'});
+        return fs.readFileSync( path, {encoding: 'utf8'});
 
     }
     catch (e) {
@@ -190,7 +175,7 @@ function getFileContent(path, partial_name) {
 
 }
 
-function getPartialsByContent(content) {
+function getPartialsByContent (content) {
 
     let result;
     let partials = [];
@@ -207,16 +192,24 @@ function getPartialsByContent(content) {
     return partials;
 }
 
-function error(err, options) {
+function error (err, options) {
 
     console.log(chalk.red('Combiner Build: Error:'));
     console.log(chalk.red(err));
 
-    if (!options.ignore_errors) {
+    if (!options.ignore_errors){
         process.exit(88);
     }
 
 }
 
 
-module.exports = HandlebarsBundle;
+module.exports = function (options) {
+
+    if (options.watch) {
+        watch(options);
+    }
+
+    return build(options);
+
+};
